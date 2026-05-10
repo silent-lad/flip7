@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Flip 7 — Score Counter</title>
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rye&family=Bungee&family=Bungee+Shade&family=Bowlby+One&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
@@ -670,7 +671,7 @@
   <div class="container">
     <header>
       <h1 class="logo">FLIP<span class="seven">7</span></h1>
-      <div class="sub">First to 200 wins</div>
+      <div class="sub" id="targetSub">First to 200 wins</div>
     </header>
 
     <!-- Setup -->
@@ -679,6 +680,11 @@
       <div class="count-row" id="countSelector"></div>
       <div class="label">Names</div>
       <div class="name-list" id="nameInputs"></div>
+      <div class="label">Target score (optional)</div>
+      <div class="name-row" style="margin-bottom: 22px;">
+        <input class="name-input" type="number" id="targetInput"
+               min="1" max="9999" inputmode="numeric" placeholder="200" />
+      </div>
       <button class="start-btn" id="startBtn">Start Game</button>
     </div>
 
@@ -727,7 +733,7 @@
   </div>
 
 <script>
-  const TARGET = 200;
+  const DEFAULT_TARGET = 200;
   const NUMBERS = [0,1,2,3,4,5,6,7,8,9,10,11,12];
   const MIN_PLAYERS = 2;
   const MAX_PLAYERS = 8;
@@ -741,12 +747,19 @@
     history: [],       // {playerIdx, points, round}
     winner: null,
     started: false,
+    target: DEFAULT_TARGET,
   };
 
   const setupState = {
     count: 4,
     names: ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7","Player 8"],
+    target: "",
   };
+
+  function parseTarget(raw) {
+    const n = parseInt(raw, 10);
+    return (isNaN(n) || n < 1) ? DEFAULT_TARGET : n;
+  }
 
   const $ = id => document.getElementById(id);
   const setupScreen = $("setupScreen");
@@ -784,6 +797,16 @@
       };
       inp.onkeydown = e => { if (e.key === "Enter") startGame(); };
     });
+
+    const ti = $("targetInput");
+    ti.value = setupState.target || "";
+    ti.oninput = e => {
+      setupState.target = e.target.value;
+      $("targetSub").textContent = `First to ${parseTarget(setupState.target)} wins`;
+    };
+    ti.onkeydown = e => { if (e.key === "Enter") startGame(); };
+
+    $("targetSub").textContent = `First to ${parseTarget(setupState.target)} wins`;
   }
 
   function startGame() {
@@ -794,6 +817,7 @@
         scores: [], total: 0,
       });
     }
+    state.target = parseTarget(setupState.target);
     state.gameId = (crypto.randomUUID && crypto.randomUUID()) ||
       (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
     state.round = 1;
@@ -815,6 +839,7 @@
   function backToSetup() {
     setupState.count = state.players.length || 4;
     state.players.forEach((p, i) => { setupState.names[i] = p.name; });
+    setupState.target = state.target === DEFAULT_TARGET ? "" : String(state.target);
     state.started = false;
     setupScreen.classList.remove("hidden");
     gameScreen.classList.add("hidden");
@@ -849,6 +874,7 @@
     const leaderIdx = findLeaderIdx();
 
     $("roundNum").textContent = state.round;
+    $("targetSub").textContent = `First to ${state.target} wins`;
     $("leaderText").innerHTML = leaderIdx >= 0 && winner === null
       ? `Leading: <strong>${state.players[leaderIdx].name}</strong>`
       : "";
@@ -865,7 +891,7 @@
     // Player rows (sorted by score desc for ranking, but we keep original order — simpler)
     const list = $("playersList");
     list.innerHTML = state.players.map((p, i) => {
-      const pct = Math.min(100, (p.total / TARGET) * 100);
+      const pct = Math.min(100, (p.total / state.target) * 100);
       const isActive = i === state.activeIdx && winner === null;
       const isWinner = winner === i;
       const isLeader = i === leaderIdx && winner === null && p.total > 0;
@@ -885,7 +911,7 @@
           </div>
           <div>
             <div class="row-score">${p.total}</div>
-            <div class="row-score-sub">${TARGET - p.total > 0 ? (TARGET - p.total) + ' to win' : 'Reached'}</div>
+            <div class="row-score-sub">${state.target - p.total > 0 ? (state.target - p.total) + ' to win' : 'Reached'}</div>
           </div>
         </div>
       `;
@@ -959,9 +985,9 @@
   }
 
   function checkWinnerAtRoundEnd() {
-    let bestIdx = -1, bestTotal = TARGET - 1;
+    let bestIdx = -1, bestTotal = state.target - 1;
     state.players.forEach((p, i) => {
-      if (p.total >= TARGET && p.total > bestTotal) {
+      if (p.total >= state.target && p.total > bestTotal) {
         bestTotal = p.total;
         bestIdx = i;
       }
@@ -1044,6 +1070,8 @@
     state.history = [];
     state.winner = null;
     state.started = false;
+    state.target = DEFAULT_TARGET;
+    setupState.target = "";
     save();
     setupScreen.classList.remove("hidden");
     gameScreen.classList.add("hidden");
@@ -1057,6 +1085,7 @@
     try {
       if (window._flip7State) Object.assign(state, JSON.parse(window._flip7State));
     } catch(e) {}
+    if (!state.target || state.target < 1) state.target = DEFAULT_TARGET;
   }
 
   $("startBtn").onclick = startGame;
