@@ -736,6 +736,8 @@
         scores: [], total: 0,
       });
     }
+    state.gameId = (crypto.randomUUID && crypto.randomUUID()) ||
+      (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
     state.round = 1;
     state.turnsThisRound = 0;
     state.activeIdx = 0;
@@ -743,6 +745,9 @@
     state.history = [];
     state.winner = null;
     state.started = true;
+    if (window.logGameStart) {
+      window.logGameStart(state.gameId, state.players.map(p => p.name));
+    }
     setupScreen.classList.add("hidden");
     gameScreen.classList.remove("hidden");
     save();
@@ -1005,6 +1010,32 @@
   } else {
     renderSetup();
   }
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBGf6YnV0ZNHD-JXPwCIxG0F1ZMk_fAV1M",
+    authDomain: "flip7-205bd.firebaseapp.com",
+    projectId: "flip7-205bd",
+    storageBucket: "flip7-205bd.firebasestorage.app",
+    messagingSenderId: "743702192109",
+    appId: "1:743702192109:web:63ce83d9ee9fe97bb891e4",
+    measurementId: "G-ZP2L7BN8FW"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.logGameStart = (gameId, players) => {
+    addDoc(collection(db, "games"), {
+      gameId,
+      players,
+      startedAt: serverTimestamp(),
+    }).catch(err => console.warn("flip7: game log failed", err));
+  };
 </script>
 </body>
 </html>
