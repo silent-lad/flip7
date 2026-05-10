@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Flip 7 — Score Counter</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rye&family=Bungee&family=Bungee+Shade&family=Bowlby+One&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
@@ -448,6 +449,58 @@
     color: #fff8e0;
   }
 
+  /* Quick-add row — type a turn score directly */
+  .quick-add {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.4);
+    border: 2px solid var(--frame);
+    border-radius: 10px;
+  }
+  .quick-add-input {
+    background: var(--cream);
+    border: 2px solid var(--frame-dark);
+    color: var(--ink);
+    font-family: "Bungee", cursive;
+    font-size: 1.1rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+    text-align: center;
+    width: 100%;
+    -moz-appearance: textfield;
+  }
+  .quick-add-input::-webkit-outer-spin-button,
+  .quick-add-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .quick-add-input:focus {
+    outline: 2px solid var(--c-orange);
+    outline-offset: 0;
+  }
+  .quick-add-btn {
+    background: linear-gradient(180deg, #5cc858 0%, #3a9b38 100%);
+    color: #fff8e0;
+    border: 2.5px solid var(--frame-dark);
+    border-radius: 8px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-family: "Bungee", cursive;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 3px 0 var(--frame-dark);
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+  }
+  .quick-add-btn:hover { filter: brightness(1.05); }
+  .quick-add-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--frame-dark); }
+  .quick-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
   /* Number pad — each number gets its own card-like color, mimicking flip 7 cards */
   .num-pad {
     display: grid;
@@ -656,6 +709,11 @@
             <button class="add-btn" id="addBtn">Add</button>
             <button class="ghost-btn" id="clearBtn">Clear</button>
             <button class="danger-btn" id="bustBtn">Bust</button>
+          </div>
+          <div class="quick-add">
+            <input type="number" id="quickInput" class="quick-add-input"
+                   inputmode="numeric" min="0" max="200" placeholder="0" />
+            <button class="quick-add-btn" id="quickAddBtn">Add Score Directly</button>
           </div>
         </div>
       </div>
@@ -886,6 +944,8 @@
     $("addBtn").disabled = disabled || state.turnCards.length === 0;
     $("clearBtn").disabled = state.turnCards.length === 0;
     $("bustBtn").disabled = disabled;
+    $("quickInput").disabled = disabled;
+    $("quickAddBtn").disabled = disabled;
 
     const tt = turnTotal();
     $("addBtn").textContent = tt > 0 ? `Add +${tt}` : "Add";
@@ -934,6 +994,20 @@
     if (state.winner !== null) return;
     state.turnCards = [];
     commitScore(state.activeIdx, 0);
+    advanceTurn();
+    save(); render();
+  }
+
+  function quickAdd() {
+    if (state.winner !== null) return;
+    const input = $("quickInput");
+    const raw = (input.value || "").trim();
+    if (raw === "") return;
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 0) return;
+    state.turnCards = [];
+    commitScore(state.activeIdx, n);
+    input.value = "";
     advanceTurn();
     save(); render();
   }
@@ -1001,6 +1075,8 @@
   $("undoBtn").onclick = undoLast;
   $("setupBtn").onclick = backToSetup;
   $("resetBtn").onclick = resetGame;
+  $("quickAddBtn").onclick = quickAdd;
+  $("quickInput").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); quickAdd(); } };
 
   load();
   if (state.started && state.players.length > 0) {
@@ -1030,6 +1106,7 @@
   const db = getFirestore(app);
 
   window.logGameStart = (gameId, players) => {
+    if (window.location.hostname !== "flip7.silentlad.com") return;
     addDoc(collection(db, "games"), {
       gameId,
       players,
